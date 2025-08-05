@@ -1,18 +1,41 @@
 import os
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.templating import Jinja2Templates
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
-from murf import Murf # We only need to import the Murf class
+from murf import Murf
+from starlette.middleware.cors import CORSMiddleware # New Import
 
 # Load environment variables from .env file
 load_dotenv()
 
 app = FastAPI()
 
+# New: Add CORS middleware to allow cross-origin requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
+# Mount the static directory to serve CSS and JS files
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Configure Jinja2 for HTML templating
+templates = Jinja2Templates(directory="templates")
+
 # Pydantic model for the request body
 class TextToSpeechRequest(BaseModel):
     text: str = "Hello, world! I am a newly-minted voice agent, ready for my big debut."
     voice_id: str = "en-US-terrell"
+    
+# The root endpoint to serve the HTML page
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})
 
 @app.post("/generate-audio")
 async def generate_audio(request: TextToSpeechRequest):
@@ -21,16 +44,13 @@ async def generate_audio(request: TextToSpeechRequest):
         raise HTTPException(status_code=500, detail="MURF_API_KEY not set in environment variables")
     
     try:
-        # Initialize the Murf client with your API key
         murf_client = Murf(api_key=api_key)
         
-        # Use the official SDK to generate the audio
         res = murf_client.text_to_speech.generate(
             text=request.text,
             voice_id=request.voice_id
         )
         
-        # The response object directly contains the audio URL
         audio_url = res.audio_file
         
         if audio_url:
@@ -39,11 +59,4 @@ async def generate_audio(request: TextToSpeechRequest):
             raise HTTPException(status_code=500, detail="Audio URL not found in API response")
             
     except Exception as e:
-        # This catch-all exception block is simple and effective.
-        # It handles any error that occurs, including API-related ones.
         raise HTTPException(status_code=500, detail=f"An error occurred while generating audio: {e}")
-
-# This is a sample endpoint from Day 1 to ensure the server is working
-@app.get("/")
-def home():
-    return {"message": "Server is running. Navigate to /docs for API details."}

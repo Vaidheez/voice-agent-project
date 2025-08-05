@@ -1,6 +1,6 @@
 fastapi
 uvicorn
 python-dotenv
-requests
+murf
 pydantic
-murfai
+jinja2
