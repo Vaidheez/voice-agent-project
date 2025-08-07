@@ -1,3 +1,4 @@
+// --- Text-to-Speech Logic ---
 document.addEventListener('DOMContentLoaded', function() {
     const textInput = document.getElementById('text-input');
     const voiceSelector = document.getElementById('voice-selector');
@@ -18,8 +19,8 @@ document.addEventListener('DOMContentLoaded', function() {
         statusMessage.textContent = "";
         speakButton.disabled = true;
         audioPlayer.style.display = 'none';
-        loadingSpinner.style.display = 'block'; // Show the spinner
-        
+        loadingSpinner.style.display = 'block';
+
         const payload = {
             text: text,
             voice_id: voiceId
@@ -56,7 +57,102 @@ document.addEventListener('DOMContentLoaded', function() {
             statusMessage.textContent = `Error: ${error.message}`;
         } finally {
             speakButton.disabled = false;
-            loadingSpinner.style.display = 'none'; // Hide the spinner
+            loadingSpinner.style.display = 'none';
         }
     });
+});
+
+// --- Echo Bot & Transcription Logic ---
+const startRecordingButton = document.getElementById('start-recording-button');
+const stopRecordingButton = document.getElementById('stop-recording-button');
+const echoAudioPlayer = document.getElementById('echo-audio-player');
+const echoStatusMessage = document.getElementById('echo-status-message');
+const waveformContainer = document.getElementById('waveform-container');
+const transcriptionResult = document.getElementById('transcription-result'); // New element for transcription
+
+let mediaRecorder;
+let audioChunks = [];
+
+// Request microphone access and start recording
+startRecordingButton.addEventListener('click', async () => {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable = (event) => {
+            audioChunks.push(event.data);
+        };
+
+        mediaRecorder.onstop = async () => {
+            echoStatusMessage.textContent = "Transcribing audio...";
+            echoStatusMessage.classList.remove('success', 'error'); // Reset status message style
+            waveformContainer.style.display = 'none'; // Hide waveform on stop
+            transcriptionResult.textContent = ''; // Clear previous transcription
+
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+
+            const formData = new FormData();
+            formData.append('file', audioBlob, `echo-recording-${new Date().toISOString()}.webm`);
+
+            try {
+                const response = await fetch('http://localhost:8000/transcribe/file', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Transcription failed with status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.transcription) {
+                    echoStatusMessage.innerHTML = `<span style="color: green;">Transcription successful!</span>`;
+                    echoStatusMessage.classList.add('success');
+                    transcriptionResult.textContent = `Transcript: "${data.transcription}"`;
+                } else {
+                    echoStatusMessage.innerHTML = `<span style="color: orange;">No transcription found.</span>`;
+                    transcriptionResult.textContent = `Transcript: (empty)`;
+                }
+                
+                // Play back the recorded audio locally
+                const audioUrl = URL.createObjectURL(audioBlob);
+                echoAudioPlayer.src = audioUrl;
+                echoAudioPlayer.style.display = 'block';
+                echoAudioPlayer.play();
+
+            } catch (error) {
+                console.error('Error during transcription:', error);
+                echoStatusMessage.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
+                echoStatusMessage.classList.add('error');
+            } finally {
+                startRecordingButton.disabled = false;
+                stopRecordingButton.disabled = true;
+            }
+        };
+
+        mediaRecorder.start();
+        echoStatusMessage.textContent = "Recording...";
+        echoStatusMessage.classList.remove('success', 'error');
+        startRecordingButton.disabled = true;
+        stopRecordingButton.disabled = false;
+        echoAudioPlayer.style.display = 'none';
+        waveformContainer.style.display = 'flex'; // Show waveform while recording
+
+    } catch (err) {
+        echoStatusMessage.textContent = `Error: ${err.message}. Please allow microphone access.`;
+        echoStatusMessage.classList.add('error');
+        console.error('Error accessing microphone:', err);
+    }
+});
+
+// Stop recording and trigger transcription/playback
+stopRecordingButton.addEventListener('click', () => {
+    if (mediaRecorder && mediaRecorder.state === 'recording') {
+        mediaRecorder.stop();
+        echoStatusMessage.textContent = "Processing audio...";
+        startRecordingButton.disabled = true;
+        stopRecordingButton.disabled = true;
+    }
 });
