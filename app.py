@@ -7,7 +7,8 @@ from pydantic import BaseModel
 from dotenv import load_dotenv
 from murf import Murf
 from starlette.middleware.cors import CORSMiddleware
-import assemblyai as aai # New Import
+import assemblyai as aai
+from murf import Murf
 
 # Load environment variables from .env file
 load_dotenv()
@@ -58,48 +59,54 @@ async def generate_audio(request: TextToSpeechRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"An error occurred while generating audio: {e}")
 
-# NEW ENDPOINT for Day 6: Transcribe Audio
-@app.post("/transcribe/file")
-async def transcribe_file(file: UploadFile = File(...)):
+# NEW Echo Bot endpoint: Transcribes audio and generates a Murf response
+@app.post("/tts/echo")
+async def tts_echo(file: UploadFile = File(...)):
     assemblyai_api_key = os.getenv("ASSEMBLYAI_API_KEY")
-    if not assemblyai_api_key:
-        raise HTTPException(status_code=500, detail="ASSEMBLYAI_API_KEY not set in environment variables")
+    murf_api_key = os.getenv("MURF_API_KEY")
+    if not assemblyai_api_key or not murf_api_key:
+        raise HTTPException(status_code=500, detail="API keys not set in environment variables")
     
-    aai.settings.api_key = assemblyai_api_key
-    transcriber = aai.Transcriber()
-
+    upload_folder = "uploads"
+    unique_filename = f"{os.urandom(16).hex()}_{file.filename}"
+    file_path = os.path.join(upload_folder, unique_filename)
+    
+    transcription = "No transcription found."
+    murf_audio_url = None
+    
     try:
-        # Transcribe directly from the file stream
-        # Read the file content into memory for direct transcription
-        audio_data = await file.read()
-        transcript = transcriber.transcribe(audio_data)
-
-        if transcript.text:
-            return {"transcription": transcript.text}
-        else:
-            return {"transcription": "No transcription found."}
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"An error occurred during transcription: {e}")
-
-# You no longer need the /upload-audio endpoint from Day 5, so it's removed.
-# If you wish to keep it for reference, you can uncomment it, but it's not needed for this task.
-# @app.post("/upload-audio")
-# async def upload_audio(file: UploadFile = File(...)):
-#     try:
-#         upload_folder = "uploads"
-#         if not os.path.exists(upload_folder):
-#             os.makedirs(upload_folder)
-
-#         file_path = os.path.join(upload_folder, file.filename)
-        
-#         with open(file_path, "wb") as buffer:
-#             shutil.copyfileobj(file.file, buffer)
+        # 1. Save the uploaded file locally for transcription
+        if not os.path.exists(upload_folder):
+            os.makedirs(upload_folder)
             
-#         return {
-#             "filename": file.filename,
-#             "content_type": file.content_type,
-#             "size": file.size
-#         }
-#     except Exception as e:
-#         raise HTTPException(status_code=500, detail=f"An error occurred during upload: {e}")
+        with open(file_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+        
+        # 2. Transcribe the audio file using AssemblyAI
+        aai.settings.api_key = assemblyai_api_key
+        transcriber = aai.Transcriber()
+        transcript = transcriber.transcribe(file_path)
+        
+        transcription = transcript.text if transcript.text else "No transcription found."
+
+        if transcription:
+            # 3. Use Murf API to generate new audio from the transcription
+            murf_client = Murf(api_key=murf_api_key)
+            murf_voice_id = "en-US-terrell" # You can choose any Murf voice here
+            
+            murf_res = murf_client.text_to_speech.generate(
+                text=transcription,
+                voice_id=murf_voice_id
+            )
+            murf_audio_url = murf_res.audio_file
+
+        return {
+            "transcription": transcription,
+            "murf_audio_url": murf_audio_url
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred during audio processing: {e}")
+    finally:
+        # 4. Clean up the temporary file
+        if os.path.exists(file_path):
+            os.remove(file_path)

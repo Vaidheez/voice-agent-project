@@ -68,7 +68,7 @@ const stopRecordingButton = document.getElementById('stop-recording-button');
 const echoAudioPlayer = document.getElementById('echo-audio-player');
 const echoStatusMessage = document.getElementById('echo-status-message');
 const waveformContainer = document.getElementById('waveform-container');
-const transcriptionResult = document.getElementById('transcription-result'); // New element for transcription
+const transcriptionResult = document.getElementById('transcription-result');
 
 let mediaRecorder;
 let audioChunks = [];
@@ -85,45 +85,48 @@ startRecordingButton.addEventListener('click', async () => {
         };
 
         mediaRecorder.onstop = async () => {
-            echoStatusMessage.textContent = "Transcribing audio...";
-            echoStatusMessage.classList.remove('success', 'error'); // Reset status message style
-            waveformContainer.style.display = 'none'; // Hide waveform on stop
-            transcriptionResult.textContent = ''; // Clear previous transcription
+            echoStatusMessage.textContent = "Transcribing and generating Murf audio...";
+            echoStatusMessage.classList.remove('success', 'error');
+            waveformContainer.style.display = 'none';
+            transcriptionResult.textContent = '';
 
             const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
 
+            const filename = `echo-recording-${new Date().toISOString().replace(/:/g, '-').replace(/\./g, '-')}.webm`;
             const formData = new FormData();
-            formData.append('file', audioBlob, `echo-recording-${new Date().toISOString()}.webm`);
+            formData.append('file', audioBlob, filename);
 
             try {
-                const response = await fetch('http://localhost:8000/transcribe/file', {
+                // Fetch the NEW /tts/echo endpoint
+                const response = await fetch('http://localhost:8000/tts/echo', {
                     method: 'POST',
                     body: formData
                 });
                 
                 if (!response.ok) {
-                    throw new Error(`Transcription failed with status: ${response.status}`);
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Processing failed with status: ${response.status}`);
                 }
 
                 const data = await response.json();
                 
-                if (data.transcription) {
-                    echoStatusMessage.innerHTML = `<span style="color: green;">Transcription successful!</span>`;
-                    echoStatusMessage.classList.add('success');
-                    transcriptionResult.textContent = `Transcript: "${data.transcription}"`;
-                } else {
-                    echoStatusMessage.innerHTML = `<span style="color: orange;">No transcription found.</span>`;
-                    transcriptionResult.textContent = `Transcript: (empty)`;
-                }
+                // Use the Murf audio URL from the response
+                const murfAudioUrl = data.murf_audio_url;
+
+                echoStatusMessage.innerHTML = `<span style="color: green;">Processing successful!</span>`;
+                echoStatusMessage.classList.add('success');
+                transcriptionResult.textContent = `Transcript: "${data.transcription}"`;
                 
-                // Play back the recorded audio locally
-                const audioUrl = URL.createObjectURL(audioBlob);
-                echoAudioPlayer.src = audioUrl;
-                echoAudioPlayer.style.display = 'block';
-                echoAudioPlayer.play();
+                if (murfAudioUrl) {
+                    echoAudioPlayer.src = murfAudioUrl;
+                    echoAudioPlayer.style.display = 'block';
+                    echoAudioPlayer.play();
+                } else {
+                    echoStatusMessage.innerHTML = `<span style="color: red;">Error: Murf audio URL not found.</span>`;
+                }
 
             } catch (error) {
-                console.error('Error during transcription:', error);
+                console.error('Error during processing:', error);
                 echoStatusMessage.innerHTML = `<span style="color: red;">Error: ${error.message}</span>`;
                 echoStatusMessage.classList.add('error');
             } finally {
@@ -138,7 +141,7 @@ startRecordingButton.addEventListener('click', async () => {
         startRecordingButton.disabled = true;
         stopRecordingButton.disabled = false;
         echoAudioPlayer.style.display = 'none';
-        waveformContainer.style.display = 'flex'; // Show waveform while recording
+        waveformContainer.style.display = 'flex';
 
     } catch (err) {
         echoStatusMessage.textContent = `Error: ${err.message}. Please allow microphone access.`;
@@ -147,7 +150,7 @@ startRecordingButton.addEventListener('click', async () => {
     }
 });
 
-// Stop recording and trigger transcription/playback
+// Stop recording and trigger processing/playback
 stopRecordingButton.addEventListener('click', () => {
     if (mediaRecorder && mediaRecorder.state === 'recording') {
         mediaRecorder.stop();
