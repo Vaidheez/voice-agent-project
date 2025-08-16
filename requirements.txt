@@ -5,3 +5,4 @@ murf
 pydantic
 jinja2
 assemblyai
+google-generativeai
