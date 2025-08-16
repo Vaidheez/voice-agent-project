@@ -6,20 +6,213 @@
     <title>VocaLoop</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
     
     <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Anime-inspired Theme Variables */
+        :root {
+            --color-background: #0d1117;
+            --color-card-background: #161b22;
+            --color-text: #c9d1d9;
+            --color-secondary-text: #8b949e;
+            --color-primary: #58a6ff;
+            --color-accent: #f07178;
+            --color-success: #3fb950;
+            --color-error: #f85149;
+            --shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            --border-glow: inset 0 0 5px var(--color-primary), 0 0 5px var(--color-primary);
+        }
+
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+        }
+
+        .main-container {
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--color-background);
+        }
+        .conversational-agent-section {
+            width: 100%;
+            max-width: 600px;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: var(--shadow);
+            background-color: var(--color-card-background);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 28px;
+            border: 2px solid var(--color-primary);
+        }
+
+        .app-name {
+            font-family: 'Poppins', sans-serif;
+            font-weight: 700;
+            font-size: 3rem;
+            color: var(--color-primary);
+            text-shadow: 2px 2px 5px rgba(88, 166, 255, 0.4);
+            letter-spacing: 2px;
+        }
+        .section-subtitle {
+            font-size: 1rem;
+            color: var(--color-secondary-text);
+            text-align: center;
+            margin-top: -20px;
+            font-style: italic;
+        }
+
+        .input-group {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .input-group label {
+            font-size: 0.9rem;
+            color: var(--color-secondary-text);
+        }
+        .styled-select {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid var(--color-primary);
+            background-color: #2b333e;
+            color: var(--color-text);
+            font-size: 1rem;
+            box-shadow: var(--border-glow);
+        }
+        
+        .record-button {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--color-accent), #ff4d4d);
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            border: 3px solid white;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            position: relative;
+            box-shadow: 0 0 15px rgba(240, 113, 120, 0.8);
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .record-button:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 25px rgba(240, 113, 120, 1);
+        }
+        .record-button.is-recording {
+            background: linear-gradient(135deg, var(--color-primary), #3b82f6);
+            box-shadow: 0 0 15px rgba(88, 166, 255, 0.8);
+        }
+
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0.7); }
+            70% { box-shadow: 0 0 0 30px rgba(248, 81, 73, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(248, 81, 73, 0); }
+        }
+        .record-button.pulse-red {
+            animation: pulse-red 2s infinite;
+        }
+
+        .status-box {
+            min-height: 40px;
+            width: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .status-message {
+            font-size: 1rem;
+            color: var(--color-secondary-text);
+            text-align: center;
+        }
+        .status-message.success {
+            color: var(--color-success);
+        }
+        .status-message.error {
+            color: var(--color-error);
+        }
+
+        .action-button {
+            padding: 12px 24px;
+            border: 2px solid var(--color-primary);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s, color 0.2s;
+            background-color: transparent;
+            color: var(--color-primary);
+            box-shadow: var(--border-glow);
+        }
+        .action-button:hover {
+            background-color: var(--color-primary);
+            color: var(--color-background);
+        }
+
+        .chat-history-container {
+            border: 2px solid var(--color-primary);
+            border-radius: 12px;
+            padding: 20px;
+            height: 350px;
+            overflow-y: auto;
+            background-color: #21262d;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            display: none;
+            box-shadow: var(--shadow);
+        }
+        .chat-history-container.is-visible {
+            display: flex;
+        }
+        .chat-message {
+            padding: 14px;
+            border-radius: 10px;
+            word-wrap: break-word;
+            box-shadow: var(--shadow);
+        }
+        .chat-message.user-message {
+            background-color: #313a48;
+            color: #d1e7ff;
+            align-self: flex-end;
+            border-bottom-right-radius: 2px;
+        }
+        .chat-message.ai-message {
+            background-color: #2e3b33;
+            color: #e2fbdc;
+            align-self: flex-start;
+            border-bottom-left-radius: 2px;
+        }
+        .chat-sender {
+            font-weight: 700;
+            color: var(--color-accent);
+        }
+
+        .session-id-display {
+            font-size: 0.8rem;
+            color: var(--color-secondary-text);
+            text-align: center;
+        }
+    </style>
 </head>
 <body>
     <div class="main-container">
-        
-        <div class="card-container text-to-speech-section">
+        <div class="card-container conversational-agent-section">
             <h1 class="app-name">VocaLoop</h1>
-            <p class="section-subtitle">Type some text and hear it spoken aloud.</p>
-            
+            <p class="section-subtitle">Your AI companion awaits.</p>
+
             <div class="input-group">
-                <label for="voice-selector">Select a Voice</label>
-                <select id="voice-selector" class="styled-select">
+                <label for="echo-voice-selector">Select AI Response Voice</label>
+                <select id="echo-voice-selector" class="styled-select">
                     <option value="en-US-terrell">🎙️ Terrell (Male, US)</option>
                     <option value="en-US-caroline">🎙️ Caroline (Female, US)</option>
                     <option value="en-US-gigi">🎙️ Gigi (Female, US)</option>
@@ -27,31 +220,12 @@
                     <option value="en-GB-eleanor">🎙️ Eleanor (Female, UK)</option>
                 </select>
             </div>
-            
-            <div class="input-group">
-                <label for="text-input">Enter Text</label>
-                <textarea id="text-input" placeholder="What should I say?" rows="4"></textarea>
-            </div>
-            
-            <button id="speak-button" class="action-button primary">🔊 Generate Audio</button>
-            
-            <div class="status-box">
-                <div id="loading-spinner"></div>
-                <p id="status-message" class="status-message"></p>
-                <audio id="audio-player" controls class="audio-control" style="display:none;"></audio>
-            </div>
-        </div>
 
-        <div class="card-container echo-bot-section">
-            <h1 class="app-name">Echo Bot</h1>
-            <p class="section-subtitle">Record your voice and hear it repeated in a new voice!</p>
-            
             <div class="recording-controls">
-                <button id="start-recording-button" class="action-button secondary">🎙️ Start</button>
-                <button id="stop-recording-button" class="action-button secondary" disabled>⏹️ Stop</button>
+                <button id="record-button" class="record-button">TALK</button>
             </div>
             
-            <div id="waveform-container">
+            <div id="waveform-container" style="display: none;">
                 <div class="bar"></div>
                 <div class="bar"></div>
                 <div class="bar"></div>
@@ -60,12 +234,16 @@
             </div>
             
             <div class="status-box">
-                <p id="echo-status-message" class="status-message"></p>
-                <audio id="echo-audio-player" controls class="audio-control" style="display:none;"></audio>
-                <p id="transcription-result" class="transcription-result"></p>
+                <p id="echo-status-message" class="status-message">Press the button and start talking.</p>
+                <audio id="echo-audio-player" style="display:none;"></audio>
             </div>
-        </div>
 
+            <button id="history-toggle-button" class="action-button">💬 Show History</button>
+
+            <div class="chat-history-container" id="chat-history-container">
+                </div>
+            <p class="session-id-display" id="session-id-display"></p>
+        </div>
     </div>
 
     <script src="/static/script.js"></script>
